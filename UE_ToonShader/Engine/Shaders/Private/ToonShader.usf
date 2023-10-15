@@ -1,0 +1,59 @@
+#include "Common.ush"
+#include "/Engine/Generated/Material.ush"
+#include "/Engine/Generated/VertexFactory.ush"
+
+float4 ToonColor;
+float ToonShininess;
+
+void MainVS(
+	FVertexFactoryInput Input,
+	out float4 Position : SV_POSITION,
+	out float3 Normal : NORMAL
+	)
+{
+	ResolvedView = ResolveView();
+	
+	FVertexFactoryIntermediates VFIntermediates = GetVertexFactoryIntermediates(Input);
+	
+	float4 WorldPos = VertexFactoryGetWorldPosition(Input, VFIntermediates);
+	float3 WorldNormal = VertexFactoryGetWorldNormal(Input, VFIntermediates);
+	
+	float3x3 TangentToLocal = VertexFactoryGetTangentToLocal(Input, VFIntermediates);
+
+	FMaterialVertexParameters VertexParameters = GetMaterialVertexParameters(Input, VFIntermediates, WorldPos.xyz, TangentToLocal);
+	WorldPos.xyz += GetMaterialWorldPositionOffset(VertexParameters);
+    
+	float4 RasterizedWorldPosition = VertexFactoryGetRasterizedWorldPosition(Input, VFIntermediates, WorldPos);
+
+	Position = mul(RasterizedWorldPosition, ResolvedView.TranslatedWorldToClip);
+
+	Normal = WorldNormal;
+
+}
+
+
+void MainPS(
+	float4 Position : SV_POSITION,
+	float3 Normal : NORMAL,
+	out float4 OutColor : SV_Target0,
+	out float4 OutTarget1 : SV_Target1,
+	out float4 OutTarget2 : SV_Target2,
+	out float4 OutTarget3 : SV_Target3,
+	out float4 OutTarget4 : SV_Target4,
+	out float4 OutTarget5 : SV_Target5,
+	out float4 OutTarget6 : SV_Target6
+	)
+{
+	// scene color
+	OutColor = float4(0,0,0,0);
+
+	// normal [-1,1] -> [0,1]
+	OutTarget1.rgb = (Normal + float3(1,1,1))/2.0f;
+
+	// toon color
+	OutTarget3 = ToonColor;
+
+	// toon shading mask
+	OutTarget5.r = 1.0f;
+	OutTarget5.g = ToonShininess*0.001f;
+}

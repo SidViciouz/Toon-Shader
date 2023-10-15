@@ -1,0 +1,55 @@
+#include "Common.ush"
+#include "/Engine/Generated/Material.ush"
+#include "/Engine/Generated/VertexFactory.ush"
+
+struct FSimpleMeshPassVSToPS
+{
+	FVertexFactoryInterpolantsVSToPS FactoryInterpolants;
+	float4 Position : SV_POSITION;
+};
+
+float ToonOutlineThickness;
+float4 ToonOutlineColor;
+
+void MainVS(
+	FVertexFactoryInput Input,
+	out FSimpleMeshPassVSToPS Output)
+{
+	ResolvedView = ResolveView();// view
+	
+	FVertexFactoryIntermediates VFIntermediates = GetVertexFactoryIntermediates(Input);
+	
+	float4 WorldPos = VertexFactoryGetWorldPosition(Input, VFIntermediates);
+	float3 WorldNormal = VertexFactoryGetWorldNormal(Input, VFIntermediates);
+	
+	float3x3 TangentToLocal = VertexFactoryGetTangentToLocal(Input, VFIntermediates);
+
+	FMaterialVertexParameters VertexParameters = GetMaterialVertexParameters(Input, VFIntermediates, WorldPos.xyz, TangentToLocal);
+	WorldPos.xyz += GetMaterialWorldPositionOffset(VertexParameters);
+    
+	float4 RasterizedWorldPosition = VertexFactoryGetRasterizedWorldPosition(Input, VFIntermediates, WorldPos);
+
+	Output.FactoryInterpolants = VertexFactoryGetInterpolantsVSToPS(Input, VFIntermediates, VertexParameters);
+	Output.Position = mul(RasterizedWorldPosition, ResolvedView.TranslatedWorldToClip);
+
+	float2 ExtentDir = normalize(mul(float4(WorldNormal, 1.0f), ResolvedView.TranslatedWorldToClip).xy);
+	float Scale = clamp(0.0f, 0.5f, Output.Position.w * 0.3f);
+	Output.Position.xy += ExtentDir * ToonOutlineThickness;
+}
+
+void MainPS(
+	FSimpleMeshPassVSToPS Input,
+	out float4 OutColor : SV_Target0,
+	out float4 OutTarget1 : SV_Target1,
+	out float4 OutTarget2 : SV_Target2,
+	out float4 OutTarget3 : SV_Target3,
+	out float4 OutTarget4 : SV_Target4,
+	out float4 OutTarget5 : SV_Target5,
+	out float4 OutTarget6 : SV_Target6)
+{
+	OutColor = float4(ToonOutlineColor.xyz,1);
+
+	OutTarget1 = 0;
+	OutTarget3 = 0;
+	OutTarget4 = 0;
+}

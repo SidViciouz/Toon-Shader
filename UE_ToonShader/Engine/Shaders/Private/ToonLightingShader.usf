@@ -1,0 +1,66 @@
+#include "Common.ush"
+
+void MainVS(
+	in float2 InPosition : ATTRIBUTE0,
+	in float2 InUV       : ATTRIBUTE1,
+	out float4 Position : SV_POSITION,
+	out float3 OutScreenVector : TEXCOORD0
+	)
+{
+	// make quad
+	float2 Ndc = InPosition;
+	Ndc -= float2(0.5f,0.5f);
+	Ndc *= 2.0f;
+
+	Position = float4(Ndc,0,1);
+
+	OutScreenVector = mul(float4(Ndc, 1, 0), View.ScreenToTranslatedWorld).xyz;
+}
+
+
+void MainPS(
+	float4 Position : SV_POSITION,
+	float3 InScreenVector : TEXCOORD0,
+	out float4 OutColor : SV_Target0
+	)
+{
+	float IsToonShader = SceneTexturesStruct.GBufferDTexture.Load(int3(Position.xy, 0)).r;
+
+	if(IsToonShader == 1.0f)
+	{
+		float3 Normal = SceneTexturesStruct.GBufferATexture.Load(int3(Position.xy, 0)).rgb;
+		Normal -= float3(0.5f,0.5f,0.5f);
+
+		float4 BaseColor = SceneTexturesStruct.GBufferCTexture.Load(int3(Position.xy, 0));
+
+		float Shininess = SceneTexturesStruct.GBufferDTexture.Load(int3(Position.xy, 0)).g * 1000.0f;
+
+		float3 L = normalize(DeferredLightUniforms.Direction);
+
+		float3 V = -normalize(InScreenVector);
+
+		float3 N = normalize(Normal);
+
+		float NL = dot(N,L);
+		
+		float3 H = normalize(L + V);
+		float HN = dot(H,N);
+		float HNPowered = pow(HN,Shininess);
+		float Specular = smoothstep(0.005, 0.01f, HNPowered);
+
+		if(NL < 0.0f)
+			NL = 0.0f;
+		else if(NL < 0.33f)
+			NL = 0.33f;
+		else if(NL < 0.66f)
+			NL = 0.66f;
+		else
+			NL = 1.0f;
+
+		OutColor = (BaseColor + Specular) * NL;
+	}
+	else
+	{
+		OutColor = float4(0,0,0,1);
+	}
+}
